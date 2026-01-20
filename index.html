@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WASIFY</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+:root{
+ --bg1:#07142f;--bg2:#0b2d5f;
+ --card:rgba(255,255,255,.12);
+ --text:#fff;--gold:#f5c542;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:Segoe UI}
+html,body{width:100%;height:100%;overflow:hidden;color:var(--text)}
+body{background:linear-gradient(135deg,var(--bg1),var(--bg2))}
+
+.dot{
+ position:absolute;width:5px;height:5px;
+ background:var(--gold);border-radius:50%;
+ animation:float 7s linear infinite;
+ box-shadow:0 0 10px var(--gold);
+}
+@keyframes float{
+ from{transform:translateY(110vh);opacity:0}
+ to{transform:translateY(-10vh);opacity:0}
+}
+
+.screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{
+ width:95%;max-width:540px;padding:18px;
+ border-radius:20px;background:var(--card);
+ backdrop-filter:blur(18px);
+ box-shadow:0 30px 60px rgba(0,0,0,.5);
+}
+.hidden{display:none}
+h1,h2{color:var(--gold);text-align:center}
+
+input,textarea,select,button{
+ width:100%;margin-top:6px;
+ padding:10px;border-radius:8px;
+ border:none;font-size:14px;
+}
+button{background:var(--gold);font-weight:bold;cursor:pointer}
+
+.menu{display:flex;gap:6px;margin:8px 0}
+.menu button{flex:1;background:rgba(0,0,0,.25);color:white}
+.menu .active{background:var(--gold);color:black}
+
+.note{
+ background:rgba(255,255,255,.15);
+ margin-top:10px;padding:10px;border-radius:10px;
+}
+.note img{max-width:100%;border-radius:8px;margin-top:6px}
+.actions button{width:auto;padding:5px 7px;font-size:12px}
+small{opacity:.8}
+</style>
+</head>
+
+<body>
+
+<script>
+for(let i=0;i<60;i++){
+ let d=document.createElement("div");
+ d.className="dot";
+ d.style.left=Math.random()*100+"%";
+ d.style.animationDuration=5+Math.random()*5+"s";
+ document.body.appendChild(d);
+}
+</script>
+
+<!-- TYPE -->
+<div id="typeScreen" class="screen">
+ <div class="card">
+  <h1>WASIFY</h1>
+  <button onclick="selectType('Study')">Study Notes</button>
+  <button onclick="selectType('Personal')">Personal Notes</button>
+  <button onclick="selectType('Work')">Working Notes</button>
+ </div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="screen hidden">
+ <div class="card">
+  <h2>Login</h2>
+  <input id="uname" placeholder="Name">
+  <input id="uemail" placeholder="Email">
+  <input id="upass" type="password" placeholder="Password">
+  <button onclick="login()">Enter</button>
+ </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashScreen" class="screen hidden">
+ <div class="card">
+  <h2 id="titleType"></h2>
+  <small id="profile"></small>
+
+  <div class="menu">
+   <button class="active" onclick="tab('notesTab')">Notes</button>
+   <button onclick="tab('bookmarksTab')">Bookmarks</button>
+   <button onclick="tab('notifyTab')">Notifications</button>
+   <button onclick="tab('aboutTab')">About</button>
+  </div>
+
+  <!-- NOTES -->
+  <div id="notesTab">
+   <input id="search" placeholder="Search..." oninput="showNotes()">
+   <input id="noteTitle" placeholder="Title">
+   <textarea id="noteText" rows="3" placeholder="Write note"></textarea>
+   <input id="tags" placeholder="Tags (comma)">
+   <input type="file" id="noteImage" accept="image/*" capture="camera">
+   <select id="privacy">
+    <option value="public">Public</option>
+    <option value="private">Private</option>
+   </select>
+   <button onclick="addNote()">Upload</button>
+   <div id="notes"></div>
+  </div>
+
+  <!-- BOOKMARKS -->
+  <div id="bookmarksTab" class="hidden"></div>
+
+  <!-- NOTIFICATIONS -->
+  <div id="notifyTab" class="hidden"></div>
+
+  <!-- ABOUT -->
+  <div id="aboutTab" class="hidden">
+   <p>
+    <b>WASIFY</b> is an advanced notes sharing platform inspired by
+    real-world learning tools.  
+    Features include camera notes, privacy, ratings, bookmarks,
+    downloads, and smart organization.
+   </p>
+  </div>
+
+ </div>
+</div>
+
+<script>
+let selectedType="", user="";
+let notes=JSON.parse(localStorage.notes||"[]");
+let bookmarks=JSON.parse(localStorage.bookmarks||"[]");
+let notifications=JSON.parse(localStorage.notify||"[]");
+
+/* FULLSCREEN */
+function selectType(t){
+ document.documentElement.requestFullscreen?.();
+ selectedType=t;
+ typeScreen.classList.add("hidden");
+ loginScreen.classList.remove("hidden");
+}
+
+/* LOGIN */
+function login(){
+ if(!uname.value||!uemail.value||!upass.value)
+  return alert("Fill all fields");
+ user=uemail.value;
+ profile.innerText=`${uname.value} (${user})`;
+ loginScreen.classList.add("hidden");
+ dashScreen.classList.remove("hidden");
+ titleType.innerText=selectedType+" Dashboard";
+ notify("Logged in");
+ showNotes();
+}
+
+/* TABS */
+function tab(id){
+ ["notesTab","bookmarksTab","notifyTab","aboutTab"].forEach(x=>{
+  document.getElementById(x).classList.add("hidden");
+ });
+ document.getElementById(id).classList.remove("hidden");
+ document.querySelectorAll(".menu button").forEach(b=>b.classList.remove("active"));
+ event.target.classList.add("active");
+}
+
+/* NOTIFY */
+function notify(msg){
+ notifications.unshift("🔔 "+msg);
+ localStorage.notify=JSON.stringify(notifications);
+ showNotify();
+}
+function showNotify(){
+ notifyTab.innerHTML=notifications.map(n=>"<small>"+n+"</small><br>").join("");
+}
+
+/* ADD NOTE */
+function addNote(){
+ let r=new FileReader();
+ r.onload=()=>{
+  notes.push({
+   id:Date.now(),user,type:selectedType,
+   title:noteTitle.value,text:noteText.value,
+   tags:tags.value,img:r.result,
+   privacy:privacy.value,likes:0,views:0,
+   comments:[],rating:0
+  });
+  localStorage.notes=JSON.stringify(notes);
+  notify("New note added");
+  showNotes();
+ };
+ noteImage.files[0]?r.readAsDataURL(noteImage.files[0]):r.onload();
+}
+
+/* ACTIONS */
+function like(id){find(id).likes++;save("Note liked")}
+function view(id){find(id).views++;save()}
+function bookmark(id){
+ bookmarks.push(find(id));
+ localStorage.bookmarks=JSON.stringify(bookmarks);
+ notify("Note bookmarked");
+ showBookmarks();
+}
+function download(id){
+ let n=find(id);
+ let a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob([n.text]));
+ a.download=n.title+".txt";a.click();
+}
+function report(){alert("Reported. Admin will review.");}
+function copyText(t){navigator.clipboard.writeText(t)}
+function find(id){return notes.find(n=>n.id===id)}
+function save(msg){
+ localStorage.notes=JSON.stringify(notes);
+ if(msg) notify(msg);
+ showNotes();
+}
+
+/* SHOW NOTES */
+function showNotes(){
+ let q=search.value?.toLowerCase()||"";
+ notesDiv.innerHTML="";
+ notes.filter(n=>
+  n.type===selectedType &&
+  (n.privacy==="public"||n.user===user) &&
+  (n.title+n.text+n.tags).toLowerCase().includes(q)
+ ).forEach(n=>{
+  notesDiv.innerHTML+=`
+  <div class="note">
+   <b>${n.title}</b> <small>👀 ${n.views}</small>
+   <p>${n.text}</p>
+   ${n.img?`<img src="${n.img}">`:""}
+   <small>🏷 ${n.tags}</small>
+   <div class="actions">
+    <button onclick="like(${n.id})">❤️ ${n.likes}</button>
+    <button onclick="view(${n.id})">👁</button>
+    <button onclick="bookmark(${n.id})">📌</button>
+    <button onclick="copyText('${n.text}')">📋</button>
+    <button onclick="download(${n.id})">⬇</button>
+    <button onclick="report()">🚩</button>
+   </div>
+  </div>`;
+ });
+}
+
+/* BOOKMARKS */
+function showBookmarks(){
+ bookmarksTab.innerHTML=bookmarks.map(b=>`
+  <div class="note"><b>${b.title}</b><p>${b.text}</p></div>
+ `).join("");
+}
+</script>
+
+</body>
+</html>
